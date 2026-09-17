@@ -86,6 +86,18 @@ test("rejects one added line when it was inserted before the file end", () => {
   assert.match(result.errors.join(" "), /文件末尾/);
 });
 
+test("reports an unidentifiable PR author instead of throwing", () => {
+  const headContent = `${baseContent}${validLine}\n`;
+  // PR 作者注销账号时 GitHub 会把 user 整个置空；机器人必须照常回一条能看懂的验收失败。
+  for (const brokenPr of [{ ...pr, user: null }, { ...pr, user: {} }, null]) {
+    const result = validateWallChange({ pr: brokenPr, files, headContent });
+    assert.equal(result.ok, false);
+    assert.match(result.errors.join(" "), /无法确认 PR 作者/);
+    // 作者都认不出来，就不该再报一条学生无从下手的 `@undefined` 用户名不一致。
+    assert.doesNotMatch(result.errors.join(" "), /undefined/);
+  }
+});
+
 test("extracts and deduplicates explicit closing references", () => {
   assert.deepEqual(parseClosingIssueNumbers("Closes #58\nfixes #58\nResolved #60"), [58, 60]);
 });

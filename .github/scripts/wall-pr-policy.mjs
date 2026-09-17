@@ -35,10 +35,12 @@ export function appendEntry(content, line) {
 export function validateWallChange({ pr, files, headContent }) {
   const errors = [];
   const wallFile = Array.isArray(files) && files.length === 1 ? files[0] : null;
+  // 作者可能整个缺失（PR 作者注销账号时 user 为 null），后面一律走 prLogin，不再碰 pr.user.login。
+  const prLogin = normalizeLogin(pr?.user?.login);
 
   if (!pr || pr.state !== "open") errors.push("PR 不是 open 状态");
   if (pr?.draft) errors.push("Draft PR 不自动处理");
-  if (!pr?.user?.login) errors.push("无法确认 PR 作者");
+  if (!prLogin) errors.push("无法确认 PR 作者");
 
   if (!Array.isArray(files) || files.length !== 1) {
     errors.push("必须且只能修改一个文件");
@@ -89,7 +91,8 @@ export function validateWallChange({ pr, files, headContent }) {
   if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
     errors.push("日期不是有效的 YYYY-MM-DD");
   }
-  if (normalizeLogin(handle) !== normalizeLogin(pr.user.login)) {
+  // 作者确认不了时上面已记过一次，这里不再追加 `@undefined` 这种没法据以修改的比对。
+  if (prLogin && normalizeLogin(handle) !== prLogin) {
     errors.push(`墙上用户名 @${handle} 必须与 PR 作者 @${pr.user.login} 一致`);
   }
   if (message.length > 500) errors.push("一句话超过 500 个字符，请先人工 review");
