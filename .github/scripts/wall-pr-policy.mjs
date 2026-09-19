@@ -89,6 +89,9 @@ export function validateWallChange({ pr, files, headContent }) {
   if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
     errors.push("日期不是有效的 YYYY-MM-DD");
   }
+  // 作者缺失在最前面已经记过一次；这里必须收口，否则读 pr.user.login 会抛异常，
+  // 机器人只能退化成「运行失败」，把上面那条具体原因吞掉。
+  if (!pr?.user?.login) return { ok: false, errors, line, date, handle, message };
   if (normalizeLogin(handle) !== normalizeLogin(pr.user.login)) {
     errors.push(`墙上用户名 @${handle} 必须与 PR 作者 @${pr.user.login} 一致`);
   }

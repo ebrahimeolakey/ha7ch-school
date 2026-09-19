@@ -67,6 +67,26 @@ test("rejects a wall handle that differs from the PR author", () => {
   assert.match(result.errors.join(" "), /必须与 PR 作者/);
 });
 
+test("returns the missing-author verdict instead of throwing", () => {
+  const result = validateWallChange({
+    pr: { state: "open", draft: false },
+    files,
+    headContent: `${baseContent}${validLine}\n`,
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join(" "), /无法确认 PR 作者/);
+});
+
+test("returns a verdict instead of throwing when the PR payload is missing", () => {
+  const result = validateWallChange({
+    pr: null,
+    files,
+    headContent: `${baseContent}${validLine}\n`,
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join(" "), /无法确认 PR 作者/);
+});
+
 test("accepts a stale branch when its patch is one valid EOF append", () => {
   const result = validateWallChange({
     pr,
