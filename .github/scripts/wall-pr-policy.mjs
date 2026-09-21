@@ -94,6 +94,15 @@ export function validateWallChange({ pr, files, headContent }) {
   }
   if (message.length > 500) errors.push("一句话超过 500 个字符，请先人工 review");
   if (/[\u0000-\u001f\u007f]/.test(message)) errors.push("一句话包含不可见控制字符");
+  // 零宽字符和双向文本控制符在 GitHub 与 school.ha7ch.com 上都渲染不出来，而这条路径
+  // 会自动合并进主干、无人过目，所以要在入口挡掉两件事：
+  //   1. 双向覆盖（U+202E 等）能让渲染出来的文字顺序与源码不一致；
+  //   2. 零宽字符能绕开 appendEntry 与主干去重的精确匹配 —— 同一句话塞一个 U+200B
+  //      就成了「新行」，可以重复上墙。
+  // 不含 U+200C/U+200D：它们是 emoji 与部分文字的合法连接符（如 👨‍👩‍👧）。
+  if (/[\u0080-\u009f؜​‎‏‪-‮⁦-⁩﻿]/.test(message)) {
+    errors.push("一句话包含零宽或双向文本控制符");
+  }
 
   return { ok: errors.length === 0, errors, line, date, handle, message };
 }

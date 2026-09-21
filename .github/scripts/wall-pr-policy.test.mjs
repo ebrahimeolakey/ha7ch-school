@@ -86,6 +86,40 @@ test("rejects one added line when it was inserted before the file end", () => {
   assert.match(result.errors.join(" "), /文件末尾/);
 });
 
+test("rejects bidi overrides that make the rendered line differ from the source", () => {
+  const trojanLine = "- 2026-08-25 · @student-one · 我来学 FDE‮";
+  const result = validateWallChange({
+    pr,
+    files: [{ ...files[0], patch: `@@ -3,1 +3,2 @@\n+${trojanLine}` }],
+    headContent: `${baseContent}${trojanLine}\n`,
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join(" "), /零宽或双向文本控制符/);
+});
+
+test("rejects a zero-width character that would slip past dedup as a new line", () => {
+  const lookalike = `${validLine}​`;
+  // 和 validLine 渲染完全一样，但精确匹配认不出来，会被当成没上过墙的新行。
+  assert.equal(appendEntry(`${baseContent}${validLine}\n`, lookalike).added, true);
+  const result = validateWallChange({
+    pr,
+    files: [{ ...files[0], patch: `@@ -3,1 +3,2 @@\n+${lookalike}` }],
+    headContent: `${baseContent}${lookalike}\n`,
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join(" "), /零宽或双向文本控制符/);
+});
+
+test("still accepts emoji that legitimately need a zero-width joiner", () => {
+  const emojiLine = "- 2026-08-25 · @student-one · 全家 👨‍👩‍👧 一起学 FDE";
+  const result = validateWallChange({
+    pr,
+    files: [{ ...files[0], patch: `@@ -3,1 +3,2 @@\n+${emojiLine}` }],
+    headContent: `${baseContent}${emojiLine}\n`,
+  });
+  assert.equal(result.ok, true);
+});
+
 test("extracts and deduplicates explicit closing references", () => {
   assert.deepEqual(parseClosingIssueNumbers("Closes #58\nfixes #58\nResolved #60"), [58, 60]);
 });
