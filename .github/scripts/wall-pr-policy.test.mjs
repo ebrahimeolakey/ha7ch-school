@@ -86,6 +86,19 @@ test("rejects one added line when it was inserted before the file end", () => {
   assert.match(result.errors.join(" "), /文件末尾/);
 });
 
+test("reports a missing PR author instead of throwing or printing @undefined", () => {
+  for (const brokenPr of [{ ...pr, user: null }, { ...pr, user: {} }, undefined]) {
+    const result = validateWallChange({
+      pr: brokenPr,
+      files,
+      headContent: `${baseContent}${validLine}\n`,
+    });
+    assert.equal(result.ok, false);
+    assert.match(result.errors.join(" "), /无法确认 PR 作者/);
+    assert.doesNotMatch(result.errors.join(" "), /@undefined/);
+  }
+});
+
 test("extracts and deduplicates explicit closing references", () => {
   assert.deepEqual(parseClosingIssueNumbers("Closes #58\nfixes #58\nResolved #60"), [58, 60]);
 });

@@ -89,8 +89,12 @@ export function validateWallChange({ pr, files, headContent }) {
   if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
     errors.push("日期不是有效的 YYYY-MM-DD");
   }
-  if (normalizeLogin(handle) !== normalizeLogin(pr.user.login)) {
-    errors.push(`墙上用户名 @${handle} 必须与 PR 作者 @${pr.user.login} 一致`);
+  // 作者未知时上面已经记过「无法确认 PR 作者」；此处若照旧读 pr.user.login，
+  // user 为 null 会抛 TypeError（回执被降级成「机器人运行失败」），
+  // user 缺 login 则会把 @undefined 打进给学生的 PR 回执。
+  const authorLogin = pr?.user?.login;
+  if (authorLogin && normalizeLogin(handle) !== normalizeLogin(authorLogin)) {
+    errors.push(`墙上用户名 @${handle} 必须与 PR 作者 @${authorLogin} 一致`);
   }
   if (message.length > 500) errors.push("一句话超过 500 个字符，请先人工 review");
   if (/[\u0000-\u001f\u007f]/.test(message)) errors.push("一句话包含不可见控制字符");
