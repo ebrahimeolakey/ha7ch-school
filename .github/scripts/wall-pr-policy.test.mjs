@@ -86,6 +86,27 @@ test("rejects one added line when it was inserted before the file end", () => {
   assert.match(result.errors.join(" "), /文件末尾/);
 });
 
+test("reports a missing PR author instead of throwing", () => {
+  const result = validateWallChange({
+    pr: { state: "open", draft: false, user: null },
+    files,
+    headContent: `${baseContent}${validLine}\n`,
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join(" "), /无法确认 PR 作者/);
+});
+
+test("reports a missing PR payload instead of throwing", () => {
+  const result = validateWallChange({
+    pr: null,
+    files,
+    headContent: `${baseContent}${validLine}\n`,
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join(" "), /PR 不是 open 状态/);
+  assert.match(result.errors.join(" "), /无法确认 PR 作者/);
+});
+
 test("extracts and deduplicates explicit closing references", () => {
   assert.deepEqual(parseClosingIssueNumbers("Closes #58\nfixes #58\nResolved #60"), [58, 60]);
 });

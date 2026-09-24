@@ -51,6 +51,12 @@ export function validateWallChange({ pr, files, headContent }) {
     }
   }
 
+  // 拿不到作者就无从比对墙上用户名，必须在这里收尾：
+  // 后面那句 `pr.user.login` 没有可选链，继续往下走会抛 TypeError，
+  // 上面刚 push 的「无法确认 PR 作者」永远到不了 PR 回执，
+  // 学生看到的会是「机器人运行失败」加一串报错，而不是验收结论。
+  if (!pr?.user?.login) return { ok: false, errors };
+
   if (typeof headContent !== "string") {
     errors.push("无法读取 PR 提交版本的 WALL.md");
     return { ok: false, errors };
