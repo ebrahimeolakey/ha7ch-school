@@ -74,6 +74,25 @@ async function getPullFiles() {
   return (await api(`/repos/${owner}/${repo}/pulls/${prNumber}/files?per_page=100`)).data;
 }
 
+// head 上的 WALL.md 读不到就返回 undefined，交给 validateWallChange 给出
+// 「无法读取 PR 提交版本的 WALL.md」这条人类可读的拒绝理由。
+// 直接抛异常会被 main 的兜底 catch 成「机器人运行失败」，把真正的原因盖掉
+// （fork 被删、PR 把 WALL.md 删了，都是学生自己能看懂并修好的情况）。
+async function getHeadWallContent(pr) {
+  const headRepo = pr.head?.repo?.full_name;
+  const headSha = pr.head?.sha;
+  if (!headRepo || !headSha) {
+    console.error("PR 的 head 仓库不可用（fork 可能已被删除），无法读取提交版本的 WALL.md");
+    return undefined;
+  }
+  try {
+    return (await getFile(headRepo, "WALL.md", headSha)).content;
+  } catch (error) {
+    console.error(`读取 ${headRepo}/WALL.md@${headSha} 失败：${error.message}`);
+    return undefined;
+  }
+}
+
 async function upsertComment(message) {
   const body = `${marker}\n${message}`;
   const comments = (await api(`/repos/${owner}/${repo}/issues/${prNumber}/comments?per_page=100`)).data;
@@ -189,15 +208,8 @@ async function main() {
     return;
   }
 
-  const [files, head] = await Promise.all([
-    getPullFiles(),
-    getFile(pr.head.repo.full_name, "WALL.md", pr.head.sha),
-  ]);
-  const policy = validateWallChange({
-    pr,
-    files,
-    headContent: head.content,
-  });
+  const [files, headContent] = await Promise.all([getPullFiles(), getHeadWallContent(pr)]);
+  const policy = validateWallChange({ pr, files, headContent });
 
   if (!policy.ok) {
     const reasons = policy.errors.map((error) => `- ${error}`).join("\n");
