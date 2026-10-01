@@ -1,0 +1,43 @@
+# 校友墙准入策略（.github/scripts/wall-pr-policy.mjs）已经有一套 node:test 测试，
+# 但在这个 workflow 之前，它只在 wall-pr-bot.yml 里被跑过一次 —— 而那个 workflow 的触发条件是
+# `pull_request_target` + `paths: WALL.md`。也就是说：
+#
+#   * 改 wall-pr-policy.mjs 的 PR（它自己的 PR！）一次测试都不跑；
+#   * 破坏被合进 master 后，第一次真正执行到它的，是某位同学的上墙 PR——
+#     而那个 job 手握 contents: write / pull-requests: write / issues: write；
+#   * wall-pr-bot.yml 刻意 checkout 默认分支，所以 master 一坏，后面每一位同学都踩同一个坑；
+#   * 测试步骤排在机器人步骤之前，测试文件一坏就不是「误判」而是上墙全线停摆。
+#
+# 这里把同一套测试提前到 PR 上跑，让破坏死在合并之前。
+# 顺带 `node --check` 一下机器人入口：wall-pr-bot.mjs 266 行、没有任何测试，
+# 它一旦有语法错误，同样只会在真人上墙 PR 上才暴露。
+name: 校友墙准入策略
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # 与 wall-pr-bot.yml 保持同一个 Node 大版本，避免「本地/CI 过了、机器人里不过」。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: 准入策略测试
+        run: node --test .github/scripts/wall-pr-policy.test.mjs
+
+      - name: 机器人入口语法检查
+        run: node --check .github/scripts/wall-pr-bot.mjs
